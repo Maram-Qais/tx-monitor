@@ -5,8 +5,11 @@ import Button from "../components/ui/Button";
 import TransactionTable from "../components/transactions/TransactionTable";
 import { useTransactionStream } from "../hooks/useTransactionStream";
 import { useTxStore } from "../store/transactions/store";
+import { useUrlSyncedFilters } from "../hooks/useUrlSyncedFilters";
 
 export default function MonitorPage() {
+  useTransactionStream();
+  useUrlSyncedFilters();
   useTransactionStream();
 
   const status = useTxStore((s) => s.ui.connectionStatus);
