@@ -16,6 +16,7 @@ import {
 import PageHeader from "../components/layout/header/PageHeader";
 import { useTxStore } from "../store/transactions/store";
 import type { Currency, TxStatus, Transaction } from "../types/transaction";
+import AnalyticsSkeleton from "../components/analytics/AnalyticsSkeleton";
 
 type MinutePoint = { minute: string; count: number };
 type StatusPoint = { status: TxStatus; count: number };
@@ -32,6 +33,8 @@ function formatMs(ms: number): string {
 export default function AnalyticsPage() {
   const orderedIds = useTxStore((s) => s.orderedIds);
   const byId = useTxStore((s) => s.byId);
+  const hasData = orderedIds.length > 0;
+
 
   const data = useMemo(() => {
     const now = Date.now();
@@ -122,7 +125,9 @@ export default function AnalyticsPage() {
         title="Analytics"
         subtitle="Real-time metrics (last 30 minutes)"
       />
-
+{!hasData ? (
+  <AnalyticsSkeleton />
+) : (
       <div className="p-5 space-y-5">
         {/* Summary cards */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -222,6 +227,7 @@ export default function AnalyticsPage() {
           Note: analytics uses a 30-minute rolling window to match the chart spec.
         </div>
       </div>
+     )}
     </div>
   );
 }

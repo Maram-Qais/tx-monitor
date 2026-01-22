@@ -54,7 +54,7 @@ export default function MonitorPage() {
       <div className="p-5 space-y-3">
   <FiltersBar />
 
- <Activity mode={paused ? "hidden" : "visible"}>
+  <Activity mode={paused ? "hidden" : "visible"}>
   {hasData ? <TransactionTable /> : <TransactionTableSkeleton />}
 </Activity>
   <TransactionDrawer />
