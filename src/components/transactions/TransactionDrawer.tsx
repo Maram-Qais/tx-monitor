@@ -4,6 +4,7 @@ import { useTxStore } from "../../store/transactions/store";
 import type { TxStatus, Transaction } from "../../types/transaction";
 import { flagTransaction } from "../../services/flagTransaction";
 import { fetchRelatedTransactions } from "../../services/relatedTransactions";
+import toast from "react-hot-toast";
 
 function fmt(d: Date) {
   return d.toLocaleString();
@@ -145,19 +146,27 @@ export default function TransactionDrawer() {
     (_current, next: boolean) => next
   );
 
-  async function flagAction() {
-    if (!tx) return;
-    if (tx.flagged) return;
+async function flagAction() {
+  if (!tx) return;
+  if (tx.flagged) return;
 
-    setOptimisticFlagged(true);
+  setOptimisticFlagged(true);
 
-    try {
-      await flagTransaction(tx.id);
-      setFlagged(tx.id, true);
-    } catch {
-      setOptimisticFlagged(false);
-    }
+  const p = flagTransaction(tx.id);
+  toast.promise(p, {
+    loading: "Flagging transaction…",
+    success: "Flagged as suspicious",
+    error: "Failed to flag (try again)",
+  });
+
+  try {
+    await p;
+    setFlagged(tx.id, true);
+  } catch {
+    setOptimisticFlagged(false);
   }
+}
+
 
   const relatedPromise = useMemo(() => {
     if (!selectedId) return Promise.resolve([] as Transaction[]);
