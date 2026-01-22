@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useOptimistic } from "react";
+import { Suspense, use, useEffect, useMemo, useOptimistic } from "react";
 import { useFormStatus } from "react-dom";
 import { useTxStore } from "../../store/transactions/store";
-import type { TxStatus } from "../../types/transaction";
+import type { TxStatus, Transaction } from "../../types/transaction";
 import { flagTransaction } from "../../services/flagTransaction";
+import { fetchRelatedTransactions } from "../../services/relatedTransactions";
 
 function fmt(d: Date) {
   return d.toLocaleString();
@@ -44,7 +45,13 @@ function StepDot({ state }: { state: StepState }) {
 }
 
 function StepLine({ done }: { done: boolean }) {
-  return <span className={`h-0.5 flex-1 ${done ? "bg-slate-900 dark:bg-slate-100" : "bg-slate-200 dark:bg-slate-800"}`} />;
+  return (
+    <span
+      className={`h-0.5 flex-1 ${
+        done ? "bg-slate-900 dark:bg-slate-100" : "bg-slate-200 dark:bg-slate-800"
+      }`}
+    />
+  );
 }
 
 function FlagSubmitButton({ disabled }: { disabled: boolean }) {
@@ -65,6 +72,64 @@ function FlagSubmitButton({ disabled }: { disabled: boolean }) {
   );
 }
 
+function RelatedList({
+  promise,
+  onSelect,
+}: {
+  promise: Promise<Transaction[]>;
+  onSelect: (id: string) => void;
+}) {
+  const items = use(promise);
+
+  if (!items.length) {
+    return (
+      <div className="text-xs text-slate-500 dark:text-slate-400">
+        No related transactions found.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onSelect(t.id)}
+          className="w-full rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="truncate font-mono text-xs text-slate-800 dark:text-slate-100">
+              {t.id}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {t.amount.toFixed(2)} {t.currency}
+            </div>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <div className="truncate text-xs text-slate-600 dark:text-slate-300">
+              {t.sender.name} → {t.receiver.name}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {t.status} • risk {t.riskScore}
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RelatedFallback() {
+  return (
+    <div className="space-y-2">
+      <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
+      <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
+      <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
+    </div>
+  );
+}
+
 export default function TransactionDrawer() {
   const selectedId = useTxStore((s) => s.ui.selectedId);
   const byId = useTxStore((s) => s.byId);
@@ -72,7 +137,6 @@ export default function TransactionDrawer() {
   const setFlagged = useTxStore((s) => s.setFlagged);
 
   const tx = selectedId ? byId[selectedId] : null;
-
   const steps = useMemo(() => (tx ? buildTimeline(tx.status) : []), [tx]);
 
   const baseFlagged = tx?.flagged ?? false;
@@ -95,17 +159,53 @@ export default function TransactionDrawer() {
     }
   }
 
+  const relatedPromise = useMemo(() => {
+    if (!selectedId) return Promise.resolve([] as Transaction[]);
+
+    const state = useTxStore.getState();
+    const source = state.byId[selectedId];
+    if (!source) return Promise.resolve([] as Transaction[]);
+
+    const pool: Transaction[] = state.orderedIds
+      .slice(0, 5000)
+      .map((id) => state.byId[id])
+      .filter((t): t is Transaction => Boolean(t));
+
+    return fetchRelatedTransactions(source, pool, 8);
+  }, [selectedId]);
+
   useEffect(() => {
     if (!selectedId) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
-      const isTyping = tag === "input" || tag === "textarea" || target?.isContentEditable;
+      const isTyping =
+        tag === "input" || tag === "textarea" || target?.isContentEditable;
 
       if (isTyping) return;
 
-      if (e.key === "Escape") selectTx(null);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        selectTx(null);
+        return;
+      }
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+
+        const state = useTxStore.getState();
+        const cur = state.ui.selectedId;
+        if (!cur) return;
+
+        const ids = state.filteredIds; 
+        const idx = ids.indexOf(cur);
+        if (idx === -1) return;
+
+        const nextIdx = e.key === "ArrowDown" ? idx + 1 : idx - 1;
+        const nextId = ids[nextIdx];
+        if (nextId) state.selectTx(nextId);
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -123,14 +223,14 @@ export default function TransactionDrawer() {
         onClick={() => selectTx(null)}
       />
 
-      <aside className="absolute right-0 top-0 h-full w-full max-w-md border-l bg-white shadow-xl dark:bg-slate-950 dark:border-slate-800">
+      <aside className="absolute right-0 top-0 h-full w-full max-w-md border-l bg-white shadow-xl dark:bg-slate-950 dark:border-slate-800 flex flex-col">
         <div className="flex items-center justify-between border-b px-4 py-3 dark:border-slate-800">
           <div>
             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Transaction Details
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
-              Timeline + Flag Action
+              ↑ / ↓ navigate • Esc close
             </div>
           </div>
 
@@ -143,14 +243,13 @@ export default function TransactionDrawer() {
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {!tx ? (
             <div className="rounded-lg border p-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
               Transaction not found (may have been evicted).
             </div>
           ) : (
             <>
-              {/* Timeline */}
               <div className="rounded-xl border p-3 dark:border-slate-800">
                 <div className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
                   Timeline
@@ -191,8 +290,21 @@ export default function TransactionDrawer() {
                 </form>
 
                 <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  Flagged: <span className="font-medium">{optimisticFlagged ? "Yes" : "No"}</span>
+                  Flagged:{" "}
+                  <span className="font-medium">
+                    {optimisticFlagged ? "Yes" : "No"}
+                  </span>
                 </div>
+              </div>
+
+              <div className="rounded-xl border p-3 dark:border-slate-800">
+                <div className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  Related transactions
+                </div>
+
+                <Suspense fallback={<RelatedFallback />}>
+                  <RelatedList promise={relatedPromise} onSelect={(id) => selectTx(id)} />
+                </Suspense>
               </div>
 
               <div className="rounded-xl border p-3 dark:border-slate-800">
@@ -204,7 +316,9 @@ export default function TransactionDrawer() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl border p-3 dark:border-slate-800">
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Timestamp</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Timestamp
+                  </div>
                   <div className="mt-1 text-sm text-slate-900 dark:text-slate-100">
                     {fmt(tx.timestamp)}
                   </div>
