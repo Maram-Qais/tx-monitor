@@ -1,3 +1,11 @@
 @import "tailwindcss";
-
 @custom-variant dark (&:where(.dark, .dark *));
+
+:root { --tx-flash: rgba(250, 204, 21, 0.35); }
+.dark { --tx-flash: rgba(56, 189, 248, 0.18); }
+
+@keyframes txFlash {
+  0% { background-color: var(--tx-flash); }
+  100% { background-color: transparent; }
+}
+.tx-flash { animation: txFlash 1.2s ease-out; }
