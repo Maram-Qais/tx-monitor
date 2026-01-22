@@ -42,6 +42,7 @@ type TxStore = {
   ui: UIState;
   filters: FiltersState;
 
+
   ingestBatch: (batch: Transaction[]) => void;
   recomputeFiltered: () => void;
   setFilters: (partial: Partial<FiltersState>) => void;
@@ -53,6 +54,8 @@ type TxStore = {
   togglePaused: () => void;
   setAutoScroll: (v: boolean) => void;
   selectTx: (id: string | null) => void;
+  setFlagged: (id: string, flagged: boolean) => void;
+
 };
 
 const MAX_KEEP = 50_000;
@@ -187,4 +190,16 @@ ui: {
   setAutoScroll: (v) => set((state) => ({ ui: { ...state.ui, autoScroll: v } })),
 
   selectTx: (id) => set((state) => ({ ui: { ...state.ui, selectedId: id } })),
+  setFlagged: (id, flagged) =>
+  set((state) => {
+    const existing = state.byId[id];
+    if (!existing) return state;
+    return {
+      byId: {
+        ...state.byId,
+        [id]: { ...existing, flagged },
+      },
+    };
+  }),
+
 }));

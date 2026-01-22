@@ -1,6 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useOptimistic } from "react";
+import { useFormStatus } from "react-dom";
 import { useTxStore } from "../../store/transactions/store";
 import type { TxStatus } from "../../types/transaction";
+import { flagTransaction } from "../../services/flagTransaction";
 
 function fmt(d: Date) {
   return d.toLocaleString();
@@ -17,7 +19,6 @@ function buildTimeline(status: TxStatus): Step[] {
       { label: "Completed / Failed", state: "todo" },
     ];
   }
-
   if (status === "processing") {
     return [
       { label: "Created", state: "done" },
@@ -25,8 +26,6 @@ function buildTimeline(status: TxStatus): Step[] {
       { label: "Completed / Failed", state: "todo" },
     ];
   }
-
-  // completed | failed
   return [
     { label: "Created", state: "done" },
     { label: "Processing", state: "done" },
@@ -41,28 +40,61 @@ function StepDot({ state }: { state: StepState }) {
       : state === "current"
       ? "bg-slate-500 dark:bg-slate-400"
       : "bg-slate-200 dark:bg-slate-800";
-
   return <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />;
 }
 
-function StepLine({ state }: { state: StepState }) {
-  const cls =
-    state === "done"
-      ? "bg-slate-900 dark:bg-slate-100"
-      : "bg-slate-200 dark:bg-slate-800";
-  return <span className={`h-0.5 flex-1 ${cls}`} />;
+function StepLine({ done }: { done: boolean }) {
+  return <span className={`h-0.5 flex-1 ${done ? "bg-slate-900 dark:bg-slate-100" : "bg-slate-200 dark:bg-slate-800"}`} />;
+}
+
+function FlagSubmitButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className={[
+        "w-full rounded-lg px-3 py-2 text-sm font-medium transition",
+        disabled || pending
+          ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+          : "bg-amber-500 text-slate-950 hover:bg-amber-400",
+      ].join(" ")}
+    >
+      {pending ? "Flagging…" : disabled ? "Flagged" : "Flag as Suspicious"}
+    </button>
+  );
 }
 
 export default function TransactionDrawer() {
   const selectedId = useTxStore((s) => s.ui.selectedId);
   const byId = useTxStore((s) => s.byId);
   const selectTx = useTxStore((s) => s.selectTx);
+  const setFlagged = useTxStore((s) => s.setFlagged);
 
   const tx = selectedId ? byId[selectedId] : null;
 
   const steps = useMemo(() => (tx ? buildTimeline(tx.status) : []), [tx]);
 
-  // Esc closes (requirement)
+  const baseFlagged = tx?.flagged ?? false;
+  const [optimisticFlagged, setOptimisticFlagged] = useOptimistic(
+    baseFlagged,
+    (_current, next: boolean) => next
+  );
+
+  async function flagAction() {
+    if (!tx) return;
+    if (tx.flagged) return;
+
+    setOptimisticFlagged(true);
+
+    try {
+      await flagTransaction(tx.id);
+      setFlagged(tx.id, true);
+    } catch {
+      setOptimisticFlagged(false);
+    }
+  }
+
   useEffect(() => {
     if (!selectedId) return;
 
@@ -72,6 +104,7 @@ export default function TransactionDrawer() {
       const isTyping = tag === "input" || tag === "textarea" || target?.isContentEditable;
 
       if (isTyping) return;
+
       if (e.key === "Escape") selectTx(null);
     };
 
@@ -97,7 +130,7 @@ export default function TransactionDrawer() {
               Transaction Details
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
-              Timeline + Actions next
+              Timeline + Flag Action
             </div>
           </div>
 
@@ -117,6 +150,7 @@ export default function TransactionDrawer() {
             </div>
           ) : (
             <>
+              {/* Timeline */}
               <div className="rounded-xl border p-3 dark:border-slate-800">
                 <div className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
                   Timeline
@@ -140,10 +174,24 @@ export default function TransactionDrawer() {
                       </div>
 
                       {i !== steps.length - 1 ? (
-                        <StepLine state={steps[i].state === "done" ? "done" : "todo"} />
+                        <StepLine done={steps[i].state === "done"} />
                       ) : null}
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-3 dark:border-slate-800">
+                <div className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  Actions
+                </div>
+
+                <form action={flagAction}>
+                  <FlagSubmitButton disabled={optimisticFlagged} />
+                </form>
+
+                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Flagged: <span className="font-medium">{optimisticFlagged ? "Yes" : "No"}</span>
                 </div>
               </div>
 
@@ -171,12 +219,16 @@ export default function TransactionDrawer() {
 
                 <div className="rounded-xl border p-3 dark:border-slate-800">
                   <div className="text-xs text-slate-500 dark:text-slate-400">Status</div>
-                  <div className="mt-1 text-sm text-slate-900 dark:text-slate-100">{tx.status}</div>
+                  <div className="mt-1 text-sm text-slate-900 dark:text-slate-100">
+                    {tx.status}
+                  </div>
                 </div>
 
                 <div className="rounded-xl border p-3 dark:border-slate-800">
                   <div className="text-xs text-slate-500 dark:text-slate-400">Risk</div>
-                  <div className="mt-1 text-sm text-slate-900 dark:text-slate-100">{tx.riskScore}</div>
+                  <div className="mt-1 text-sm text-slate-900 dark:text-slate-100">
+                    {tx.riskScore}
+                  </div>
                 </div>
               </div>
 
@@ -197,13 +249,6 @@ export default function TransactionDrawer() {
                   <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
                     ({tx.receiver.id})
                   </span>
-                </div>
-              </div>
-
-              <div className="rounded-xl border p-3 dark:border-slate-800">
-                <div className="text-xs text-slate-500 dark:text-slate-400">Flagged</div>
-                <div className="mt-1 text-sm text-slate-900 dark:text-slate-100">
-                  {tx.flagged ? "Yes" : "No"}
                 </div>
               </div>
             </>
