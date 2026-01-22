@@ -7,6 +7,7 @@ import FiltersBar from "../components/transactions/FiltersBar";
 import { useTransactionStream } from "../hooks/useTransactionStream";
 import { useTxStore } from "../store/transactions/store";
 import { useUrlSyncedFilters } from "../hooks/useUrlSyncedFilters";
+import TransactionDrawer from "../components/transactions/TransactionDrawer";
 
 export default function MonitorPage() {
   useUrlSyncedFilters();
@@ -48,18 +49,21 @@ export default function MonitorPage() {
       />
 
       <div className="p-5 space-y-3">
-        <FiltersBar />
+  <FiltersBar />
 
-        <Activity mode={paused ? "hidden" : "visible"}>
-          <TransactionTable />
-        </Activity>
+  <Activity mode={paused ? "hidden" : "visible"}>
+    <TransactionTable />
+  </Activity>
 
-        {paused ? (
-          <div className="rounded-xl border bg-white p-4 text-sm text-slate-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300">
-            Stream paused
-          </div>
-        ) : null}
-      </div>
+  <TransactionDrawer />
+
+  {paused ? (
+    <div className="rounded-xl border bg-white p-4 text-sm text-slate-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300">
+      Stream paused
+    </div>
+  ) : null}
+</div>
+
     </div>
   );
 }
