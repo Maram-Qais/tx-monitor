@@ -3,6 +3,7 @@ import type { Currency, TxStatus } from "../../types/transaction";
 import type { RiskLevel } from "../../store/transactions/store";
 import { useTxStore } from "../../store/transactions/store";
 import Button from "../ui/Button";
+import { deletePreset, loadPresets, savePreset, type FilterPreset } from "../../services/filterPresets";
 
 const STATUSES: TxStatus[] = ["pending", "processing", "completed", "failed"];
 const CURRENCIES: Currency[] = ["USD", "EUR", "IQD", "GBP"];
@@ -29,17 +30,17 @@ export default function FiltersBar() {
   const [searchText, setSearchText] = useState(filters.searchQuery ?? "");
   const debounceRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    setMinText(filters.amountMin?.toString() ?? "");
-  }, [filters.amountMin]);
+  const [presets, setPresets] = useState<FilterPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [presetName, setPresetName] = useState("");
 
   useEffect(() => {
-    setMaxText(filters.amountMax?.toString() ?? "");
-  }, [filters.amountMax]);
+    setPresets(loadPresets());
+  }, []);
 
-  useEffect(() => {
-    setSearchText(filters.searchQuery ?? "");
-  }, [filters.searchQuery]);
+  useEffect(() => setMinText(filters.amountMin?.toString() ?? ""), [filters.amountMin]);
+  useEffect(() => setMaxText(filters.amountMax?.toString() ?? ""), [filters.amountMax]);
+  useEffect(() => setSearchText(filters.searchQuery ?? ""), [filters.searchQuery]);
 
   useEffect(() => {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
@@ -88,15 +89,78 @@ export default function FiltersBar() {
     });
   };
 
+  const onApplyPreset = (id: string) => {
+    setSelectedPresetId(id);
+    const p = presets.find((x) => x.id === id);
+    if (!p) return;
+    setFilters(p.filters); 
+  };
+
+  const onSavePreset = () => {
+    const next = savePreset(presetName, filters);
+    setPresets(next);
+    setPresetName("");
+    setSelectedPresetId(next[0]?.id ?? "");
+  };
+
+  const onDeletePreset = () => {
+    if (!selectedPresetId) return;
+    const next = deletePreset(selectedPresetId);
+    setPresets(next);
+    setSelectedPresetId("");
+  };
+
   return (
     <div className="rounded-xl border bg-white p-4 dark:bg-slate-900 dark:border-slate-700">
       <div className="flex flex-col gap-3">
+        {/* Presets row */}
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              Presets
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={selectedPresetId}
+                onChange={(e) => onApplyPreset(e.target.value)}
+                className="h-10 w-full min-w-[240px] rounded-lg border bg-white px-2 text-sm text-slate-900 outline-none dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+              >
+                <option value="">— Select preset —</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+
+              <Button variant="outline" onClick={onDeletePreset} disabled={!selectedPresetId}>
+                Delete
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1 lg:w-[420px]">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              Save current filters as preset
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                placeholder="e.g. High risk USD failures"
+                className="h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+              />
+              <Button onClick={onSavePreset} disabled={!presetName.trim()}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Amount min
-              </label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Amount min</label>
               <input
                 value={minText}
                 onChange={(e) => setMinText(e.target.value)}
@@ -108,9 +172,7 @@ export default function FiltersBar() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Amount max
-              </label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Amount max</label>
               <input
                 value={maxText}
                 onChange={(e) => setMaxText(e.target.value)}
@@ -122,9 +184,7 @@ export default function FiltersBar() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Date from
-              </label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Date from</label>
               <input
                 type="date"
                 value={filters.dateFrom ?? ""}
@@ -134,9 +194,7 @@ export default function FiltersBar() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Date to
-              </label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Date to</label>
               <input
                 type="date"
                 value={filters.dateTo ?? ""}
@@ -162,9 +220,7 @@ export default function FiltersBar() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Status:
-              </span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Status:</span>
               {STATUSES.map((st) => {
                 const active = filters.statuses.includes(st);
                 return (
@@ -186,18 +242,14 @@ export default function FiltersBar() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Currency:
-              </span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Currency:</span>
               {CURRENCIES.map((ccy) => {
                 const active = filters.currencies.includes(ccy);
                 return (
                   <button
                     key={ccy}
                     type="button"
-                    onClick={() =>
-                      setFilters({ currencies: toggleInList(filters.currencies, ccy) })
-                    }
+                    onClick={() => setFilters({ currencies: toggleInList(filters.currencies, ccy) })}
                     className={[
                       "h-8 rounded-full border px-3 text-xs transition",
                       active
@@ -212,9 +264,7 @@ export default function FiltersBar() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Risk:
-              </span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Risk:</span>
               <select
                 value={filters.risk}
                 onChange={(e) => setFilters({ risk: e.target.value as RiskLevel })}
