@@ -3,12 +3,12 @@ import PageHeader from "../components/layout/header/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import TransactionTable from "../components/transactions/TransactionTable";
+import FiltersBar from "../components/transactions/FiltersBar";
 import { useTransactionStream } from "../hooks/useTransactionStream";
 import { useTxStore } from "../store/transactions/store";
 import { useUrlSyncedFilters } from "../hooks/useUrlSyncedFilters";
 
 export default function MonitorPage() {
-  useTransactionStream();
   useUrlSyncedFilters();
   useTransactionStream();
 
@@ -25,7 +25,7 @@ export default function MonitorPage() {
     <div className="min-h-full">
       <PageHeader
         title="Real-Time Transaction Monitor"
-        subtitle="Requirement #1 complete (filters next)"
+        subtitle="Live feed + filtering (presets next)"
         right={
           <>
             <Badge>WS: {status}</Badge>
@@ -48,6 +48,8 @@ export default function MonitorPage() {
       />
 
       <div className="p-5 space-y-3">
+        <FiltersBar />
+
         <Activity mode={paused ? "hidden" : "visible"}>
           <TransactionTable />
         </Activity>
