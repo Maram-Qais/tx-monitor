@@ -4,10 +4,14 @@ import AppLayout from "./components/layout/AppLayout";
 import MonitorPage from "./pages/MonitorPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import { Toaster } from "react-hot-toast";
+import { ErrorBoundary } from "./components/errors/ErrorBoundary";
+import NotFoundPage from "./pages/NotFoundPage";
 
 export default function App() {
   return (
     <ThemeProvider>
+        <ErrorBoundary>
+
       <Toaster
         position="top-right"
         toastOptions={{
@@ -25,16 +29,11 @@ export default function App() {
             <Route path="/analytics" element={<AnalyticsPage />} />
           </Route>
 
-          <Route
-            path="*"
-            element={
-              <div className="p-6 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-                404 — Not Found
-              </div>
-            }
-          />
+       <Route path="*" element={<NotFoundPage />} />
+
         </Routes>
-      </BrowserRouter>
+        </BrowserRouter>
+        </ErrorBoundary>
     </ThemeProvider>
   );
 }

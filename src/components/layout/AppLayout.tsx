@@ -11,6 +11,8 @@ import {
   X,
 } from "lucide-react";
 import { useTheme } from "../../hooks/useTheme";
+import RouteErrorBoundary from "../errors/RouteErrorBoundary";
+
 
 type LinkItem = { to: string; label: string; icon: React.ReactNode };
 
@@ -159,8 +161,9 @@ export default function AppLayout() {
             {isLight ? <Moon size={20} className={icon} /> : <Sun size={20} className={icon} />}
           </button>
         </div>
-
-        <Outlet />
+          <RouteErrorBoundary>
+              <Outlet />
+          </RouteErrorBoundary>
       </div>
     </div>
   );
