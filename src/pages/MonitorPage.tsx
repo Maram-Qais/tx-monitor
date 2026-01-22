@@ -8,6 +8,7 @@ import { useTransactionStream } from "../hooks/useTransactionStream";
 import { useTxStore } from "../store/transactions/store";
 import { useUrlSyncedFilters } from "../hooks/useUrlSyncedFilters";
 import TransactionDrawer from "../components/transactions/TransactionDrawer";
+import TransactionTableSkeleton from "../components/transactions/TransactionTableSkeleton";
 
 export default function MonitorPage() {
   useUrlSyncedFilters();
@@ -21,6 +22,8 @@ export default function MonitorPage() {
 
   const autoScroll = useTxStore((s) => s.ui.autoScroll);
   const setAutoScroll = useTxStore((s) => s.setAutoScroll);
+  const hasData = useTxStore((s) => s.orderedIds.length > 0);
+
 
   return (
     <div className="min-h-full">
@@ -51,10 +54,9 @@ export default function MonitorPage() {
       <div className="p-5 space-y-3">
   <FiltersBar />
 
-  <Activity mode={paused ? "hidden" : "visible"}>
-    <TransactionTable />
-  </Activity>
-
+ <Activity mode={paused ? "hidden" : "visible"}>
+  {hasData ? <TransactionTable /> : <TransactionTableSkeleton />}
+</Activity>
   <TransactionDrawer />
 
   {paused ? (
