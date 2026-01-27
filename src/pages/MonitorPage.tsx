@@ -29,7 +29,7 @@ export default function MonitorPage() {
     <div className="min-h-full">
       <PageHeader
         title="Real-Time Transaction Monitor"
-        subtitle="Live feed + filtering (presets next)"
+        subtitle="Live feed + filtering"
         right={
           <>
             <Badge>WS: {status}</Badge>
@@ -52,19 +52,19 @@ export default function MonitorPage() {
       />
 
       <div className="p-5 space-y-3">
-  <FiltersBar />
+        <FiltersBar />
 
-  <Activity mode={paused ? "hidden" : "visible"}>
-  {hasData ? <TransactionTable /> : <TransactionTableSkeleton />}
-</Activity>
-  <TransactionDrawer />
+        <Activity mode={paused ? "hidden" : "visible"}>
+          {hasData ? <TransactionTable /> : <TransactionTableSkeleton />}
+        </Activity>
+        <TransactionDrawer />
 
-  {paused ? (
-    <div className="rounded-xl border bg-white p-4 text-sm text-slate-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300">
-      Stream paused
-    </div>
-  ) : null}
-</div>
+        {paused ? (
+          <div className="rounded-xl border bg-white p-4 text-sm text-slate-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300">
+            Stream paused
+          </div>
+        ) : null}
+      </div>
 
     </div>
   );

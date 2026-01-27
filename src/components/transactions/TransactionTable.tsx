@@ -2,62 +2,80 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTxStore } from "../../store/transactions/store";
 
-function formatTimestamp(d: Date) {
-  return d.toLocaleString();
-}
-
-type Anchor = { id: string; offset: number } | null;
+const ROW_PX = 48;
 
 export default function TransactionTable() {
   const parentRef = useRef<HTMLDivElement | null>(null);
+
   const ids = useTxStore((s) => s.filteredIds);
   const byId = useTxStore((s) => s.byId);
   const seqById = useTxStore((s) => s.seqById);
   const selectTx = useTxStore((s) => s.selectTx);
   const autoScroll = useTxStore((s) => s.ui.autoScroll);
+
+  //  Fast timestamp formatting (no per-row toLocaleString calls)
+  const tsFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        year: "2-digit",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    []
+  );
+
+  // highlight new rows at TOP
   const prevFirstIdRef = useRef<string | null>(null);
   const [flashIds, setFlashIds] = useState<Record<string, true>>({});
-  const anchorRef = useRef<Anchor>(null);
 
   const rowVirtualizer = useVirtualizer({
-
     count: ids.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 48,
-    overscan: 10,
+    estimateSize: () => ROW_PX,
+    overscan: 5, // ✅ lower work
   });
 
   const virtualItems = rowVirtualizer.getVirtualItems();
   const totalSize = rowVirtualizer.getTotalSize();
 
+  /**
+   *  Viewport stability when autoScroll is OFF (and user is NOT at top)
+   * Instead of O(n) ids.indexOf(...), we use totalSize delta.
+   * If the list grows because new rows prepended, totalSize increases.
+   */
+  const prevTotalSizeRef = useRef(0);
+  const prevTopIdForDeltaRef = useRef<string | null>(null);
+
   useLayoutEffect(() => {
-    if (autoScroll) return;
     const el = parentRef.current;
     if (!el) return;
 
-    const anchor = anchorRef.current;
-    if (!anchor) return;
+    const prevTotal = prevTotalSizeRef.current;
+    const nextTotal = totalSize;
 
-    const idx = ids.indexOf(anchor.id);
-    if (idx === -1) return;
+    const prevTop = prevTopIdForDeltaRef.current;
+    const nextTop = ids[0] ?? null;
 
-    rowVirtualizer.scrollToIndex(idx, { align: "start" });
-    el.scrollTop = el.scrollTop + anchor.offset;
-  }, [ids, autoScroll, rowVirtualizer]);
+    const nearTop = el.scrollTop < 120;
 
-  useLayoutEffect(() => {
-    if (autoScroll) return;
-    const el = parentRef.current;
-    if (!el) return;
-    if (!virtualItems.length) return;
+    // Only compensate when:
+    // - autoScroll OFF
+    // - user is NOT near top (so we don't push them away from latest)
+    // - top id changed (likely prepend)
+    // - total size grew
+    if (!autoScroll && !nearTop && prevTop && nextTop && nextTop !== prevTop) {
+      const delta = nextTotal - prevTotal;
+      if (delta > 0) el.scrollTop += delta;
+    }
 
-    const first = virtualItems[0];
-    const id = ids[first.index];
-    if (!id) return;
+    prevTotalSizeRef.current = nextTotal;
+    prevTopIdForDeltaRef.current = nextTop;
+  }, [autoScroll, ids, totalSize]);
 
-    anchorRef.current = { id, offset: el.scrollTop - first.start };
-  }, [autoScroll, ids, virtualItems]);
-
+  // Highlight newly prepended rows (new at TOP)
   useEffect(() => {
     const firstId = ids[0] ?? null;
     const prevFirst = prevFirstIdRef.current;
@@ -91,6 +109,7 @@ export default function TransactionTable() {
     prevFirstIdRef.current = firstId;
   }, [ids]);
 
+  // Auto-scroll ON => follow TOP (latest) only when user is near TOP
   useEffect(() => {
     if (!autoScroll) return;
     if (!ids.length) return;
@@ -99,10 +118,8 @@ export default function TransactionTable() {
     if (!el) return;
 
     const nearTop = el.scrollTop < 120;
-    if (nearTop) {
-      rowVirtualizer.scrollToIndex(0, { align: "start" });
-    }
-  }, [autoScroll, ids[0], ids.length, rowVirtualizer]);
+    if (nearTop) rowVirtualizer.scrollToIndex(0, { align: "start" });
+  }, [autoScroll, ids.length, ids[0], rowVirtualizer]);
 
   const header = useMemo(() => {
     return (
@@ -154,7 +171,7 @@ export default function TransactionTable() {
                   </div>
 
                   <div className="col-span-2 truncate text-xs text-slate-600 dark:text-slate-300">
-                    {formatTimestamp(tx.timestamp)}
+                    {tsFmt.format(tx.timestamp)}
                   </div>
 
                   <div className="col-span-1 text-right text-xs text-slate-700 dark:text-slate-200">
