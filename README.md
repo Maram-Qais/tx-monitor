@@ -1,6 +1,6 @@
 # Real-Time Transaction Monitor
 
-Live Demo (Monitor): https://tx-monitor.vercel.app/monitor  
+Live Demo (Monitor): https://tx-monitor.vercel.app/monitor
 Live Demo (Analytics): https://tx-monitor.vercel.app/analytics  
 Repo: https://github.com/Maram-Qais/tx-monitor
 
