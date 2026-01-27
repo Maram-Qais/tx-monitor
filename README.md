@@ -68,14 +68,15 @@ A transaction monitoring dashboard for a financial operations team. It simulates
 5. Analytics aggregates from the store, and is loaded on a separate route.
 
 ### Component diagram
+
 ```mermaid
 flowchart TD
   A[Mock Socket] -->|tx events| B[useTransactionStream]
   B -->|buffer + batch flush| C[Zustand Store]
-  C --> D[TransactionTable (TanStack Virtual)]
-  C --> E[FiltersBar + Presets]
+  C --> D[TransactionTable - TanStack Virtual]
+  C --> E[FiltersBar and Presets]
   D --> F[TransactionDrawer]
-  C --> G[AnalyticsPage (Lazy Loaded)]
+  C --> G[AnalyticsPage - Lazy Loaded]
 ```
 
 ### State Management Approach Justification (Zustand)
